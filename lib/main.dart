@@ -16,11 +16,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.amber,
-      ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'Scan Wi-Fi',
+      home: MyHomePage(title: 'Scan Wi-Fi Home Page'),
     );
   }
 }

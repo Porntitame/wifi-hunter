@@ -1,6 +1,6 @@
-class signal {
+class Signal {
   String? SSID;
-  int? level;
+  String? RSSI;
 
-  signal({this.SSID, this.level});
+  Signal({this.SSID, this.RSSI});
 }

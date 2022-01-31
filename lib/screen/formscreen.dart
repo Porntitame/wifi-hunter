@@ -1,15 +1,19 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:test_a/model/signal.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import 'package:wifi_hunter/wifi_hunter.dart';
 import 'package:wifi_hunter/wifi_hunter_result.dart';
 
+import 'package:http/http.dart' as http;
+
 class FormScreen extends StatefulWidget {
-  const FormScreen({Key? key}) : super(key: key);
+  late final Function addTx;
 
   @override
   _FormScreenState createState() => _FormScreenState();
@@ -18,64 +22,99 @@ class FormScreen extends StatefulWidget {
 class _FormScreenState extends State<FormScreen> {
   WiFiHunterResult wiFiHunterResults = WiFiHunterResult();
   List wiFiHunterResult = [];
-  Color huntButtonColor = Colors.lightBlue;
+  List<Map> dataset = [];
+  Color huntButtonColor = Colors.lightBlueAccent.shade100;
+  final _locationController = TextEditingController();
+  late String enteredLocation;
 
-  @override
-  void initState() {
-    huntWiFis();
-    super.initState();
-  }
+  // final formKey = GlobalKey<FormState>();
+  // Signal mySignal = Signal();
 
-  double findFag(number) {
-    return number * (number - 1);
-  }
+  // @override
+  // void initState() {
+  //   huntWiFis();
+  //   super.initState();
+  // }
 
   Future<void> huntWiFis() async {
-    setState(() => huntButtonColor = Colors.grey.shade200);
+    setState(() => huntButtonColor = Colors.amber.shade300);
 
     try {
       wiFiHunterResults = (await WiFiHunter.huntWiFiNetworks)!;
       wiFiHunterResult = [];
+      dataset = [];
+
       for (int index = 0; index < wiFiHunterResults.results.length; index++) {
-        if (['Noon', 'BB Court C_FL1-1']
+        if (['Device_1', 'Device_2']
             .contains(wiFiHunterResults.results[index].SSID)) {
           wiFiHunterResult.add(wiFiHunterResults.results[index]);
+          dataset.add({
+            'SSID': wiFiHunterResults.results[index].SSID,
+            'RSSI': wiFiHunterResults.results[index].level
+          });
         }
       }
-
-      huntWiFis();
     } on PlatformException catch (exception) {
       print(exception.toString());
     }
 
     if (!mounted) return;
 
-    setState(() => huntButtonColor = Colors.grey.shade200);
+    setState(() => huntButtonColor = Colors.lightBlueAccent.shade100);
   }
 
-//
-  /*final formKey = GlobalKey<FormState>();
-  signal myData = signal();
-  //เตรียม Firebase
-  final Future<FirebaseApp> firebase = Firebase.initializeApp();
-  CollectionReference _dataCollection =
-      FirebaseFirestore.instance.collection("signals");*/
+  Future<void> _submitLocation() async {
+    setState(() {
+      enteredLocation = _locationController.text;
+    });
+    print(enteredLocation);
+  }
+
+  Future<void> _submitData() async {
+    Map<String, dynamic> playload = {
+      "case": enteredLocation,
+      "dataset": dataset
+    };
+
+    try {
+      var url = Uri.parse('http://192.168.137.17:8000/rssi-to-csv');
+      var response = await http.post(
+        url,
+        body: json.encode(playload),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      );
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      Fluttertoast.showToast(
+        msg: 'saved!',
+        gravity: ToastGravity.CENTER,
+      );
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'something error!',
+        gravity: ToastGravity.CENTER,
+      );
+    }
+    //print(playload);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Scan Signal"),
+        backgroundColor: Colors.lightBlueAccent,
+        title: Text(
+          "Scan Wi-Fi",
+          style: TextStyle(color: Colors.grey.shade900),
+        ),
       ),
       body: Container(
         padding: EdgeInsets.all(20.0),
         child: Form(
           child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            physics: const BouncingScrollPhysics(),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   margin: const EdgeInsets.symmetric(vertical: 20.0),
@@ -84,176 +123,109 @@ class _FormScreenState extends State<FormScreen> {
                           backgroundColor: MaterialStateProperty.all<Color>(
                               huntButtonColor)),
                       onPressed: () => huntWiFis(),
-                      child: const Text('Hunt Networks')),
+                      child: Text(
+                        'Scan Wi-Fi',
+                        style: TextStyle(color: Colors.grey.shade800),
+                      )),
                 ),
                 wiFiHunterResult.isNotEmpty
-                    ? Container(
-                        margin: const EdgeInsets.only(
-                            bottom: 20.0, left: 30.0, right: 30.0),
-                        child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(
+                    ? Column(
+                        children: [
+                          Container(
+                            child: Column(
+                              children: List.generate(
                                 wiFiHunterResult.length,
-                                (index) => Container(
+                                (index) => Column(
+                                  children: [
+                                    Container(
                                       margin: const EdgeInsets.symmetric(
                                           vertical: 10.0),
                                       child: ListTile(
-                                          leading: Text(wiFiHunterResult[index]
-                                                  .level
-                                                  .toString() +
-                                              ' dbm'),
-                                          title: Text(
-                                              wiFiHunterResult[index].SSID),
-                                          subtitle: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text('BSSID : ' +
-                                                    wiFiHunterResult[index]
-                                                        .BSSID),
-                                                Text('Capabilities : ' +
-                                                    wiFiHunterResult[index]
-                                                        .capabilities),
-                                                Text('Frequency : ' +
-                                                    wiFiHunterResult[index]
-                                                        .frequency
-                                                        .toString()),
-                                                Text('Channel Width : ' +
-                                                    wiFiHunterResult[index]
-                                                        .channelWidth
-                                                        .toString()),
-                                                Text('Timestamp : ' +
-                                                    wiFiHunterResult[index]
-                                                        .timestamp
-                                                        .toString())
-                                              ])),
-                                    ))),
+                                        leading: Text(wiFiHunterResult[index]
+                                                .level
+                                                .toString() +
+                                            ' dbm'),
+                                        title:
+                                            Text(wiFiHunterResult[index].SSID),
+                                        subtitle: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text('BSSID : ' +
+                                                wiFiHunterResult[index].BSSID),
+                                            Text('Capabilities : ' +
+                                                wiFiHunterResult[index]
+                                                    .capabilities),
+                                            Text('Frequency : ' +
+                                                wiFiHunterResult[index]
+                                                    .frequency
+                                                    .toString()),
+                                            Text('Channel Width : ' +
+                                                wiFiHunterResult[index]
+                                                    .channelWidth
+                                                    .toString()),
+                                            Text('Timestamp : ' +
+                                                wiFiHunterResult[index]
+                                                    .timestamp
+                                                    .toString())
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    Divider(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       )
-                    : Container()
+                    : Container(),
+                TextField(
+                  decoration: InputDecoration(labelText: 'Location'),
+                  controller: _locationController,
+                  onSubmitted: (_) => _submitLocation(),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      width: 100,
+                      child: ElevatedButton(
+                        style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(
+                                Colors.amber.shade300)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Icon(
+                                Icons.save_alt_outlined,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                            Text(
+                              "save",
+                              style: TextStyle(color: Colors.grey.shade800),
+                            ),
+                          ],
+                        ),
+                        onPressed: () async {
+                          await _submitData();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
         ),
       ),
     );
-    /*return FutureBuilder(
-        future: firebase,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text("Error"),
-              ),
-              body: Center(
-                child: Text("${snapshot.error}"),
-              ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.done) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text("แบบฟอร์มบันทึกคะแนนสอบ"),
-              ),
-              body: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 20.0),
-                      child: ElevatedButton(
-                          style: ButtonStyle(
-                              backgroundColor: MaterialStateProperty.all<Color>(
-                                  huntButtonColor)),
-                          onPressed: () => huntWiFis(),
-                          child: const Text('Hunt Networks')),
-                    ),
-                    wiFiHunterResult.results.isNotEmpty
-                        ? Container(
-                            margin: const EdgeInsets.only(
-                                bottom: 20.0, left: 30.0, right: 30.0),
-                            child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: List.generate(
-                                    wiFiHunterResult.results.length,
-                                    (index) => Container(
-                                          margin: const EdgeInsets.symmetric(
-                                              vertical: 10.0),
-                                          child: ListTile(
-                                              leading: Text(wiFiHunterResult
-                                                      .results[index].level
-                                                      .toString() +
-                                                  ' dbm'),
-                                              title: Text(wiFiHunterResult
-                                                  .results[index].SSID),
-                                              subtitle: Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.start,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text('BSSID : ' +
-                                                        wiFiHunterResult
-                                                            .results[index]
-                                                            .BSSID),
-                                                    Text('Capabilities : ' +
-                                                        wiFiHunterResult
-                                                            .results[index]
-                                                            .capabilities),
-                                                    Text('Frequency : ' +
-                                                        wiFiHunterResult
-                                                            .results[index]
-                                                            .frequency
-                                                            .toString()),
-                                                    Text('Channel Width : ' +
-                                                        wiFiHunterResult
-                                                            .results[index]
-                                                            .channelWidth
-                                                            .toString()),
-                                                    Text('Timestamp : ' +
-                                                        wiFiHunterResult
-                                                            .results[index]
-                                                            .timestamp
-                                                            .toString())
-                                                  ])),
-                                        ))),
-                          )
-                        : Container()
-                  ],
-                ),
-                /*SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            child: Text(
-                              "บันทึกข้อมูล",
-                              style: TextStyle(fontSize: 20),
-                            ),
-                            onPressed: () async {
-                              await _dataCollection.add(
-                                  {"SSID": myData.SSID, "RSSI": myData.level});
-                            },
-                          ),
-                        )*/
-              ),
-            );
-          }
-          return Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        });*/
   }
 }
