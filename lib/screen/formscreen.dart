@@ -26,58 +26,88 @@ class _FormScreenState extends State<FormScreen> {
   Color huntButtonColor = Colors.lightBlueAccent.shade100;
   final _locationController = TextEditingController();
   late String enteredLocation;
+  var submit;
+  int saveCount = 0;
+  bool isStoped = false;
 
   // final formKey = GlobalKey<FormState>();
   // Signal mySignal = Signal();
 
-  // @override
-  // void initState() {
-  //   huntWiFis();
-  //   super.initState();
-  // }
+  @override
+  void initState() {
+    submit = () async {
+      await _submitData();
+    };
+    super.initState();
+  }
 
   Future<void> huntWiFis() async {
-    setState(() => huntButtonColor = Colors.amber.shade300);
+    if (!isStoped) {
+      setState(() => huntButtonColor = Colors.amber.shade300);
 
-    try {
-      wiFiHunterResults = (await WiFiHunter.huntWiFiNetworks)!;
-      wiFiHunterResult = [];
-      dataset = [];
+      try {
+        wiFiHunterResults = (await WiFiHunter.huntWiFiNetworks)!;
+        wiFiHunterResult = [];
+        dataset = [];
 
-      for (int index = 0; index < wiFiHunterResults.results.length; index++) {
-        if (['Device_1', 'Device_2']
-            .contains(wiFiHunterResults.results[index].SSID)) {
-          wiFiHunterResult.add(wiFiHunterResults.results[index]);
-          dataset.add({
-            'SSID': wiFiHunterResults.results[index].SSID,
-            'RSSI': wiFiHunterResults.results[index].level
-          });
+        for (int index = 0; index < wiFiHunterResults.results.length; index++) {
+          // if ([
+          //   'cc:2d:21:91:6c:61',
+          //   '74:22:bb:8a:02:5c',
+          //   '00:2e:c7:8f:f1:68',
+          //   '00:2e:c7:8f:f2:67',
+          //   '78:44:76:ec:26:48',
+          //   'cc:2d:21:91:81:c1',
+          //   '00:2e:c7:8f:f1:c6',
+          //   '00:2e:c7:8f:f1:61',
+          //   '00:2e:c7:8f:f1:63',
+          //   '00:2e:c7:8f:f1:69'
+          // ].contains(wiFiHunterResults.results[index].BSSID))
+          {
+            wiFiHunterResult.add(wiFiHunterResults.results[index]);
+            dataset.add({
+              'BSSID': wiFiHunterResults.results[index].BSSID,
+              'RSSI': wiFiHunterResults.results[index].level,
+              //'Frequency': wiFiHunterResults.results[index].frequency
+            });
+          }
         }
+        Future.delayed(Duration(seconds: 2), () {
+          huntWiFis();
+        });
+      } on PlatformException catch (exception) {
+        print(exception.toString());
       }
-    } on PlatformException catch (exception) {
-      print(exception.toString());
+
+      if (!mounted) return;
+
+      setState(() => huntButtonColor = Colors.lightBlueAccent.shade100);
     }
-
-    if (!mounted) return;
-
-    setState(() => huntButtonColor = Colors.lightBlueAccent.shade100);
   }
 
   Future<void> _submitLocation() async {
     setState(() {
+      saveCount = 0;
       enteredLocation = _locationController.text;
     });
     print(enteredLocation);
   }
 
+  Future<void> clickHuntWifi() async {
+    isStoped = false;
+    await huntWiFis();
+  }
+
   Future<void> _submitData() async {
+    setState(() => submit = null);
+
     Map<String, dynamic> playload = {
       "case": enteredLocation,
       "dataset": dataset
     };
 
     try {
-      var url = Uri.parse('http://192.168.137.17:8000/rssi-to-csv');
+      var url = Uri.parse('http://161.246.18.222:80/rssi-to-csv');
       var response = await http.post(
         url,
         body: json.encode(playload),
@@ -85,19 +115,44 @@ class _FormScreenState extends State<FormScreen> {
           'Content-Type': 'application/json; charset=UTF-8',
         },
       );
+      setState(() {
+        submit = () async {
+          await _submitData();
+        };
+      });
+
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
+      setState(() {
+        saveCount++;
+      });
       Fluttertoast.showToast(
-        msg: 'saved!',
+        msg: 'saved!(${saveCount})',
         gravity: ToastGravity.CENTER,
       );
     } catch (e) {
+      setState(() {
+        submit = () async {
+          await _submitData();
+        };
+      });
       Fluttertoast.showToast(
         msg: 'something error!',
         gravity: ToastGravity.CENTER,
       );
     }
-    //print(playload);
+    // setState(() {
+    //   submit = () async {
+    //     await _submitData();
+    //   };
+    // });
+
+    // setState(() => Future.delayed(const Duration(seconds: 5), () {
+    //       submit = () async {
+    //         await _submitData();
+    //       };
+    //     }));
+    // print(playload);
   }
 
   @override
@@ -122,15 +177,74 @@ class _FormScreenState extends State<FormScreen> {
                       style: ButtonStyle(
                           backgroundColor: MaterialStateProperty.all<Color>(
                               huntButtonColor)),
-                      onPressed: () => huntWiFis(),
+                      onPressed: () => clickHuntWifi(),
                       child: Text(
                         'Scan Wi-Fi',
                         style: TextStyle(color: Colors.grey.shade800),
                       )),
                 ),
+                Container(
+                  child: ElevatedButton(
+                      style: ButtonStyle(
+                          backgroundColor: MaterialStateProperty.all<Color>(
+                              Colors.grey.shade300)),
+                      onPressed: () => isStoped = true,
+                      child: Text(
+                        'Stop',
+                        style: TextStyle(color: Colors.grey.shade800),
+                      )),
+                ),
+                TextField(
+                  decoration: InputDecoration(labelText: 'Location'),
+                  controller: _locationController,
+                  onSubmitted: (_) => _submitLocation(),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      width: 100,
+                      child: ElevatedButton(
+                        style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(
+                                Colors.amber.shade300)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Icon(
+                                Icons.save_alt_outlined,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                            Text(
+                              "save",
+                              style: TextStyle(color: Colors.grey.shade800),
+                            ),
+                          ],
+                        ),
+                        onPressed: submit,
+                      ),
+                    ),
+                  ],
+                ),
                 wiFiHunterResult.isNotEmpty
                     ? Column(
                         children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.wifi,
+                                color: Colors.amber,
+                              ),
+                              Text(
+                                '  Number of transmitter : ${wiFiHunterResult.length}',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
                           Container(
                             child: Column(
                               children: List.generate(
@@ -184,43 +298,6 @@ class _FormScreenState extends State<FormScreen> {
                         ],
                       )
                     : Container(),
-                TextField(
-                  decoration: InputDecoration(labelText: 'Location'),
-                  controller: _locationController,
-                  onSubmitted: (_) => _submitLocation(),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      width: 100,
-                      child: ElevatedButton(
-                        style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(
-                                Colors.amber.shade300)),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(right: 8),
-                              child: Icon(
-                                Icons.save_alt_outlined,
-                                color: Colors.blueAccent,
-                              ),
-                            ),
-                            Text(
-                              "save",
-                              style: TextStyle(color: Colors.grey.shade800),
-                            ),
-                          ],
-                        ),
-                        onPressed: () async {
-                          await _submitData();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
