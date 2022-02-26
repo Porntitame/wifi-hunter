@@ -30,9 +30,6 @@ class _FormScreenState extends State<FormScreen> {
   int saveCount = 0;
   bool isStoped = false;
 
-  // final formKey = GlobalKey<FormState>();
-  // Signal mySignal = Signal();
-
   @override
   void initState() {
     submit = () async {
@@ -68,7 +65,6 @@ class _FormScreenState extends State<FormScreen> {
             dataset.add({
               'BSSID': wiFiHunterResults.results[index].BSSID,
               'RSSI': wiFiHunterResults.results[index].level,
-              //'Frequency': wiFiHunterResults.results[index].frequency
             });
           }
         }
@@ -107,7 +103,7 @@ class _FormScreenState extends State<FormScreen> {
     };
 
     try {
-      var url = Uri.parse('http://161.246.18.222:80/rssi-to-csv');
+      var url = Uri.parse('http://161.246.18.222:80/rssi-to-coordinate');
       var response = await http.post(
         url,
         body: json.encode(playload),
@@ -123,6 +119,7 @@ class _FormScreenState extends State<FormScreen> {
 
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
+
       setState(() {
         saveCount++;
       });
@@ -141,18 +138,6 @@ class _FormScreenState extends State<FormScreen> {
         gravity: ToastGravity.CENTER,
       );
     }
-    // setState(() {
-    //   submit = () async {
-    //     await _submitData();
-    //   };
-    // });
-
-    // setState(() => Future.delayed(const Duration(seconds: 5), () {
-    //       submit = () async {
-    //         await _submitData();
-    //       };
-    //     }));
-    // print(playload);
   }
 
   @override
