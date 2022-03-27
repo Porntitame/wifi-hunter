@@ -25,7 +25,7 @@ class _FormScreenState extends State<FormScreen> {
   List<Map> dataset = [];
   Color huntButtonColor = Colors.lightBlueAccent.shade100;
   final _locationController = TextEditingController();
-  late String enteredLocation;
+  late String enteredLocation = '';
   var submit;
   int saveCount = 0;
   bool isStoped = false;
@@ -38,62 +38,6 @@ class _FormScreenState extends State<FormScreen> {
     super.initState();
   }
 
-  Future<void> huntWiFis() async {
-    if (!isStoped) {
-      setState(() => huntButtonColor = Colors.amber.shade300);
-
-      try {
-        wiFiHunterResults = (await WiFiHunter.huntWiFiNetworks)!;
-        wiFiHunterResult = [];
-        dataset = [];
-
-        for (int index = 0; index < wiFiHunterResults.results.length; index++) {
-          // if ([
-          //   'cc:2d:21:91:6c:61',
-          //   '74:22:bb:8a:02:5c',
-          //   '00:2e:c7:8f:f1:68',
-          //   '00:2e:c7:8f:f2:67',
-          //   '78:44:76:ec:26:48',
-          //   'cc:2d:21:91:81:c1',
-          //   '00:2e:c7:8f:f1:c6',
-          //   '00:2e:c7:8f:f1:61',
-          //   '00:2e:c7:8f:f1:63',
-          //   '00:2e:c7:8f:f1:69'
-          // ].contains(wiFiHunterResults.results[index].BSSID))
-          {
-            wiFiHunterResult.add(wiFiHunterResults.results[index]);
-            dataset.add({
-              'BSSID': wiFiHunterResults.results[index].BSSID,
-              'RSSI': wiFiHunterResults.results[index].level,
-            });
-          }
-        }
-        Future.delayed(Duration(seconds: 2), () {
-          huntWiFis();
-        });
-      } on PlatformException catch (exception) {
-        print(exception.toString());
-      }
-
-      if (!mounted) return;
-
-      setState(() => huntButtonColor = Colors.lightBlueAccent.shade100);
-    }
-  }
-
-  Future<void> _submitLocation() async {
-    setState(() {
-      saveCount = 0;
-      enteredLocation = _locationController.text;
-    });
-    print(enteredLocation);
-  }
-
-  Future<void> clickHuntWifi() async {
-    isStoped = false;
-    await huntWiFis();
-  }
-
   Future<void> _submitData() async {
     setState(() => submit = null);
 
@@ -103,7 +47,7 @@ class _FormScreenState extends State<FormScreen> {
     };
 
     try {
-      var url = Uri.parse('http://161.246.18.222:80/rssi-to-coordinate');
+      var url = Uri.parse('http://161.246.18.222:80/rssi-to-csv');
       var response = await http.post(
         url,
         body: json.encode(playload),
@@ -138,6 +82,68 @@ class _FormScreenState extends State<FormScreen> {
         gravity: ToastGravity.CENTER,
       );
     }
+  }
+
+  Future<void> huntWiFis() async {
+    if (!isStoped) {
+      setState(() => huntButtonColor = Colors.amber.shade300);
+
+      try {
+        wiFiHunterResults = (await WiFiHunter.huntWiFiNetworks)!;
+        wiFiHunterResult = [];
+        dataset = [];
+
+        for (int index = 0; index < wiFiHunterResults.results.length; index++) {
+          if ([
+            'Device1',
+            'Device2',
+            'Device3',
+            //'Device4'
+            //   'cc:2d:21:91:6c:61',
+            //   '74:22:bb:8a:02:5c',
+            //   '00:2e:c7:8f:f1:68',
+            //   '00:2e:c7:8f:f2:67',
+            //   '78:44:76:ec:26:48',
+            //   'cc:2d:21:91:81:c1',
+            //   '00:2e:c7:8f:f1:c6',
+            //   '00:2e:c7:8f:f1:61',
+            //   '00:2e:c7:8f:f1:63',
+            //   '00:2e:c7:8f:f1:69'
+          ].contains(wiFiHunterResults.results[index].SSID)) {
+            wiFiHunterResult.add(wiFiHunterResults.results[index]);
+            dataset.add({
+              'SSID': wiFiHunterResults.results[index].SSID,
+              'RSSI': wiFiHunterResults.results[index].level,
+            });
+          }
+        }
+        if (wiFiHunterResult.length >= 3) {
+          await _submitData();
+        }
+        //Future.delayed(Duration(seconds: 2), () {
+        huntWiFis();
+        //});
+      } on PlatformException catch (exception) {
+        print(exception.toString());
+      }
+
+      if (!mounted) return;
+
+      setState(() => huntButtonColor = Colors.lightBlueAccent.shade100);
+    }
+  }
+
+  Future<void> _submitLocation() async {
+    setState(() {
+      saveCount = 0;
+      enteredLocation = _locationController.text;
+    });
+    print(enteredLocation);
+  }
+
+  Future<void> clickHuntWifi() async {
+    isStoped = false;
+    await huntWiFis();
   }
 
   @override
